@@ -224,3 +224,4 @@ Data/raw/
 .venv/
 
 Data/processed/merged.csv
+Data/processed/merged.zip

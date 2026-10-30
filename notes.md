@@ -11,7 +11,7 @@ Scripts: `src/download_weather.py` -> `src/build_dataset.py` -> `Data/processed/
 |---|----------|-----|
 | 1 | Retail data: Kaggle "Store Sales - Time Series Forecasting" (`train.csv`, `stores.csv`, `holidays_events.csv`, `oil.csv`) | Real data, has city names, holidays and oil, many references |
 | 2 | Weather data: Open-Meteo Historical Weather API, one coordinate pair per city, timezone `America/Guayaquil` | Free, CC BY 4.0, daily data covering 2013-2017, dates line up with sales dates |
-| 3 | 22 cities with approximate city-centre coordinates (`Data/city_coordinates.csv`) | `stores.csv` only has city names. 
+| 3 | 22 cities with approximate city-centre coordinates (`Data/city_coordinates.csv`) | `stores.csv` only has city names. |
 | 4 | Dropped `rain_sum` | Almost identical to `precipitation_sum` (no snow in these cities) |
 | 5 | Added `is_rainy` = precipitation >= 1 mm | Simple rainy/dry indicator |
 | 6 | Merged weather with a left join on `date` + `city` | Keeps every sales row |
@@ -36,6 +36,39 @@ Scripts: `src/download_weather.py` -> `src/build_dataset.py` -> `Data/processed/
 - Weather: 22 cities x 1,688 days = 37,136 rows, no missing values. Daily max temperature 11.7-35.1 C, min temperature 1.9-26.3 C, precipitation 0-171.5 mm/day (mean 6.2 mm)
 - Rows dropped before store opening: 222,057 (7.4%). Late-opening stores: 36, 53, 20, 29, 21, 42, 22, 52 (store 52 opened 2017-04-20)
 - **Final dataset: 2,778,831 rows x 28 columns** (`Data/processed/merged.csv`)
+
+## 2b. Data dictionary (final `merged.csv`, 28 columns)
+
+| Column | Meaning | Source |
+|--------|---------|--------|
+| `id` | Row identifier | Kaggle `train.csv` |
+| `date` | Date of the sales record (2013-01-01 to 2017-08-15) | Kaggle `train.csv` |
+| `store_nbr` | Store identifier (54 stores) | Kaggle `train.csv` |
+| `family` | Product family (33 families) | Kaggle `train.csv` |
+| `sales` | Total sales of the product family at the store on that date (target variable; can be fractional for items sold by weight) | Kaggle `train.csv` |
+| `onpromotion` | Number of items of the product family on promotion at the store on that date | Kaggle `train.csv` |
+| `city` | City of the store (22 cities) | Kaggle `stores.csv` |
+| `state` | State (province) of the store | Kaggle `stores.csv` |
+| `store_type` | Store type (anonymised category) | Kaggle `stores.csv` |
+| `cluster` | Group of similar stores | Kaggle `stores.csv` |
+| `temperature_2m_max` | Daily maximum air temperature at 2 m (C) | Open-Meteo |
+| `temperature_2m_min` | Daily minimum air temperature at 2 m (C) | Open-Meteo |
+| `temperature_2m_mean` | Daily mean air temperature at 2 m (C) | Open-Meteo |
+| `precipitation_sum` | Daily total precipitation (mm) | Open-Meteo |
+| `is_rainy` | 1 if `precipitation_sum` >= 1 mm, else 0 | Created |
+| `oil_price` | Daily oil price (WTI crude, USD per barrel); missing days filled with the last known price | Kaggle `oil.csv` (gaps filled by us) |
+| `is_national_holiday` | 1 if a national holiday (not transferred) | Created from `holidays_events.csv` |
+| `is_regional_holiday` | 1 if a regional holiday in the store's state | Created from `holidays_events.csv` |
+| `is_local_holiday` | 1 if a local holiday in the store's city | Created from `holidays_events.csv` |
+| `is_holiday` | 1 if any of the three holiday flags is 1 | Created |
+| `year` | Year | Created |
+| `month` | Month (1-12) | Created |
+| `day` | Day of the month | Created |
+| `dayofweek` | Day of the week (0 = Monday ... 6 = Sunday) | Created |
+| `weekofyear` | ISO week number | Created |
+| `is_weekend` | 1 if Saturday or Sunday | Created |
+| `is_payday` | 1 if the 15th or the last day of the month (public-sector wage days) | Created |
+| `season` | `rainy` (Dec-May) or `dry` (Jun-Nov), simplified | Created |
 
 ## 3. Sources to cite (verify each before the final report)
 
