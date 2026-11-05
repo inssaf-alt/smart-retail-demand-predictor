@@ -14,6 +14,7 @@ from sklearn.metrics import (
 
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
 
 # Load the merged dataset
 df = pd.read_csv(
@@ -392,3 +393,115 @@ print("MAE:", tree_weather_mae)
 print("RMSE:", tree_weather_rmse)
 print("R2:", tree_weather_r2)
 print("RMSLE:", tree_weather_rmsle)
+# RANDOM FOREST - WITHOUT WEATHER
+
+random_forest = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("model", RandomForestRegressor(
+        n_estimators=50,
+        max_depth=15,
+        min_samples_leaf=10,
+        random_state=42,
+        n_jobs=-1
+    ))
+])
+
+print("\nRandom Forest created successfully!")
+print("\nTraining Random Forest...")
+
+random_forest.fit(
+    X_tree_train,
+    y_tree_train
+)
+
+print("Random Forest training completed!")
+rf_predictions_log = random_forest.predict(
+    X_test_without_weather
+)
+
+rf_predictions = np.expm1(rf_predictions_log)
+
+print("Random Forest predictions completed!")
+rf_mae = mean_absolute_error(
+    y_test_actual,
+    rf_predictions
+)
+
+rf_rmse = np.sqrt(
+    mean_squared_error(y_test_actual, rf_predictions)
+)
+
+rf_r2 = r2_score(
+    y_test_actual,
+    rf_predictions
+)
+
+rf_rmsle = np.sqrt(
+    mean_squared_log_error(
+        y_test_actual,
+        np.maximum(rf_predictions, 0)
+    )
+)
+
+print("\n--- RANDOM FOREST RESULTS (WITHOUT WEATHER) ---")
+print("MAE:", rf_mae)
+print("RMSE:", rf_rmse)
+print("R2:", rf_r2)
+print("RMSLE:", rf_rmsle)
+# RANDOM FOREST - WITH WEATHER
+
+random_forest_weather = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("model", RandomForestRegressor(
+        n_estimators=50,
+        max_depth=15,
+        min_samples_leaf=10,
+        random_state=42,
+        n_jobs=-1
+    ))
+])
+
+print("\nRandom Forest with weather created successfully!")
+print("\nTraining Random Forest with weather...")
+
+random_forest_weather.fit(
+    X_tree_train_weather,
+    y_tree_train
+)
+
+print("Random Forest with weather training completed!")
+rf_weather_predictions_log = random_forest_weather.predict(
+    X_test_with_weather
+)
+
+rf_weather_predictions = np.expm1(
+    rf_weather_predictions_log
+)
+
+print("Random Forest weather predictions completed!")
+rf_weather_mae = mean_absolute_error(
+    y_test_actual,
+    rf_weather_predictions
+)
+
+rf_weather_rmse = np.sqrt(
+    mean_squared_error(y_test_actual, rf_weather_predictions)
+)
+
+rf_weather_r2 = r2_score(
+    y_test_actual,
+    rf_weather_predictions
+)
+
+rf_weather_rmsle = np.sqrt(
+    mean_squared_log_error(
+        y_test_actual,
+        np.maximum(rf_weather_predictions, 0)
+    )
+)
+
+print("\n--- RANDOM FOREST RESULTS (WITH WEATHER) ---")
+print("MAE:", rf_weather_mae)
+print("RMSE:", rf_weather_rmse)
+print("R2:", rf_weather_r2)
+print("RMSLE:", rf_weather_rmsle)
