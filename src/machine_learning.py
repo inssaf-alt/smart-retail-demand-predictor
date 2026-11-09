@@ -505,3 +505,158 @@ print("MAE:", rf_weather_mae)
 print("RMSE:", rf_weather_rmse)
 print("R2:", rf_weather_r2)
 print("RMSLE:", rf_weather_rmsle)
+
+
+# -----------------------------------------
+# FEATURE IMPORTANCE ANALYSIS
+# -----------------------------------------
+
+print("\n--- FEATURE IMPORTANCE ANALYSIS ---")
+
+# Use the Random Forest model WITH weather
+# so that the feature names and importance scores match.
+
+fitted_preprocessor = random_forest_weather.named_steps["preprocessor"]
+
+fitted_model = random_forest_weather.named_steps["model"]
+
+# Get feature names after preprocessing
+feature_names = fitted_preprocessor.get_feature_names_out()
+
+# Get importance scores
+importances = fitted_model.feature_importances_
+
+# Check that both have the same length
+print("Number of feature names:", len(feature_names))
+print("Number of importance scores:", len(importances))
+
+# Create the feature importance table
+importance_df = pd.DataFrame({
+    "Feature": feature_names,
+    "Importance": importances
+})
+
+# Sort from most important to least important
+importance_df = importance_df.sort_values(
+    by="Importance",
+    ascending=False
+)
+
+print("\nTop 15 Most Important Features:")
+print(importance_df.head(15))
+
+# Save the results
+importance_df.to_csv(
+    "results/feature_importance.csv",
+    index=False
+)
+
+print("\nFeature importance saved successfully!")
+
+# -----------------------------------------
+# MODEL COMPARISON TABLE
+# -----------------------------------------
+
+print("\n--- MODEL COMPARISON ---")
+
+comparison_df = pd.DataFrame({
+    "Model": [
+        "Baseline",
+        "Decision Tree (Without Weather)",
+        "Decision Tree (With Weather)",
+        "Random Forest (Without Weather)",
+        "Random Forest (With Weather)"
+    ],
+
+    "MAE": [
+        baseline_mae,
+        tree_mae,
+        tree_weather_mae,
+        rf_mae,
+        rf_weather_mae
+    ],
+
+    "RMSE": [
+        baseline_rmse,
+        tree_rmse,
+        tree_weather_rmse,
+        rf_rmse,
+        rf_weather_rmse
+    ],
+
+    "R2": [
+        baseline_r2,
+        tree_r2,
+        tree_weather_r2,
+        rf_r2,
+        rf_weather_r2
+    ],
+
+    "RMSLE": [
+        baseline_rmsle,
+        tree_rmsle,
+        tree_weather_rmsle,
+        rf_rmsle,
+        rf_weather_rmsle
+    ]
+})
+
+print(comparison_df.round(4))
+
+# Save comparison results
+comparison_df.to_csv(
+    "results/model_comparison.csv",
+    index=False
+)
+
+print("\nModel comparison saved successfully!")
+print("Model comparison saved successfully!")
+# ==========================================
+# WEATHER FEATURE IMPORTANCE
+# ==========================================
+
+# Get feature names from the Random Forest WITH weather
+weather_feature_names = (
+    random_forest_weather
+    .named_steps["preprocessor"]
+    .get_feature_names_out()
+)
+
+# Get importance scores
+weather_importances = (
+    random_forest_weather
+    .named_steps["model"]
+    .feature_importances_
+)
+
+# Create a DataFrame
+weather_importance_df = pd.DataFrame({
+    "Feature": weather_feature_names,
+    "Importance": weather_importances
+})
+
+# Sort features by importance
+weather_importance_df = weather_importance_df.sort_values(
+    by="Importance",
+    ascending=False
+)
+
+# Display weather features only
+print("\n--- WEATHER FEATURE IMPORTANCE ---")
+
+weather_only = weather_importance_df[
+    weather_importance_df["Feature"].str.contains(
+        "temperature|precipitation|is_rainy",
+        case=False
+    )
+]
+
+print(weather_only)
+
+# Save the results
+weather_importance_df.to_csv(
+    "results/feature_importance_with_weather.csv",
+    index=False
+)
+
+print("\nWeather feature importance saved!")
