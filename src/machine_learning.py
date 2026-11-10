@@ -627,6 +627,40 @@ family_errors.to_csv(
     "results/error_by_family.csv"
 )
 
+# =========================================
+# ERROR ANALYSIS GRAPH: TOP 10 FAMILIES
+# =========================================
+
+# Select the 10 families with the highest MAE
+top_10_families = family_errors.head(10).sort_values(
+    ascending=True
+)
+
+# Create the graph
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_10_families.index,
+    top_10_families.values
+)
+
+plt.xlabel("Mean Absolute Error (MAE)")
+plt.ylabel("Product Family")
+plt.title("Top 10 Product Families with Highest Prediction Error")
+
+plt.tight_layout()
+
+# Save the graph
+plt.savefig(
+    "figures/error_analysis_by_family.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+plt.close()
+
+print("Error analysis graph saved successfully!")
+
 store_errors.to_csv(
     "results/error_by_store.csv"
 )
@@ -708,6 +742,7 @@ print("\n--- FEATURE IMPORTANCE ANALYSIS ---")
 
 
 # FUNCTION TO EXTRACT AND SAVE FEATURE IMPORTANCE
+
 def save_feature_importance(model_pipeline, filename, model_name):
 
     fitted_preprocessor = model_pipeline.named_steps["preprocessor"]
@@ -719,7 +754,6 @@ def save_feature_importance(model_pipeline, filename, model_name):
     # Get importance scores
     importances = fitted_model.feature_importances_
 
-    # Check that both have the same length
     print(f"\n{model_name}")
     print("Number of feature names:", len(feature_names))
     print("Number of importance scores:", len(importances))
@@ -739,10 +773,40 @@ def save_feature_importance(model_pipeline, filename, model_name):
     print("\nTop 15 Most Important Features:")
     print(importance_df.head(15))
 
-    # Save the results
+    # Save the CSV file
     importance_df.to_csv(filename, index=False)
 
     print(f"\nSaved successfully: {filename}")
+
+    # Create feature importance graph
+    top_10 = importance_df.head(10).sort_values(
+        by="Importance",
+        ascending=True
+    )
+
+    plt.figure(figsize=(10, 6))
+
+    plt.barh(
+        top_10["Feature"],
+        top_10["Importance"]
+    )
+
+    plt.xlabel("Feature Importance")
+    plt.ylabel("Features")
+    plt.title(f"Top 10 Feature Importances - {model_name}")
+
+    plt.tight_layout()
+
+    # Save the graph
+    figure_filename = filename.replace(
+        "results/",
+        "figures/"
+    ).replace(".csv", ".png")
+
+    plt.savefig(figure_filename, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"Feature importance graph saved: {figure_filename}")
 
 
 # 1. Random Forest WITHOUT weather
