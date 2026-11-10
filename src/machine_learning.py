@@ -16,6 +16,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 
+import matplotlib.pyplot as plt
+
+
 # Load the merged dataset
 df = pd.read_csv(
     "Data/processed/merged.csv",
@@ -70,7 +73,7 @@ print("Number of product families:", df["family"].nunique())
 print("Number of stores:", df["store_nbr"].nunique())
 print("Number of cities:", df["city"].nunique())
 # ==========================================
-# STEP 2: TRAIN-TEST SPLIT
+#        TRAIN-TEST SPLIT
 # ==========================================
 
 # Sort the dataset by date
@@ -97,7 +100,7 @@ print("Training date range:",
 print("Testing date range:",
       test["date"].min(), "to", test["date"].max())
 # ==========================================
-# STEP 3: SELECT FEATURES
+#   SELECT FEATURES
 # ==========================================
 
 # Columns that describe the store and product
@@ -159,20 +162,21 @@ print(features_without_weather)
 print("\nFeatures with weather:")
 print(features_with_weather)
 # ==========================================
-# STEP 4: ENCODE CATEGORICAL FEATURES
+#      ENCODE CATEGORICAL FEATURES
 # ==========================================
 
 # Create the preprocessing transformer
-preprocessor = ColumnTransformer(
-    transformers=[
-        (
-            "categorical",
-            OneHotEncoder(handle_unknown="ignore"),
-            categorical_features
-        )
-    ],
-    remainder="passthrough"
-)
+
+
+def make_preprocessor():
+    return ColumnTransformer(
+        transformers=[
+            ("categorical", OneHotEncoder(
+                handle_unknown="ignore"), categorical_features)
+        ],
+        remainder="passthrough"
+    )
+
 
 print("\n--- PREPROCESSOR CREATED ---")
 print("Categorical features will be encoded.")
@@ -209,7 +213,20 @@ print("Training features with weather:",
 
 print("Testing features with weather:",
       X_test_with_weather.shape)
-# BASELINE MODEL
+
+# -----------------------------------------
+# BASELINE MODELS
+# -----------------------------------------
+
+# Actual sales values
+y_test_actual = test["sales"].to_numpy()
+
+
+# =========================================
+# BASELINE 1: SIMPLE AVERAGE
+# =========================================
+
+print("\n--- BASELINE 1: SIMPLE AVERAGE ---")
 
 baseline_model = DummyRegressor(strategy="mean")
 
@@ -227,16 +244,9 @@ baseline_predictions_log = baseline_model.predict(
 # Convert predictions back to original sales scale
 baseline_predictions = np.expm1(baseline_predictions_log)
 
-# Actual sales values
-y_test_actual = test["sales"].to_numpy()
-
-print("\n--- BASELINE MODEL ---")
-print("Baseline training completed!")
-# EVALUATE BASELINE
-
+# Evaluate
 baseline_mae = mean_absolute_error(
-    y_test_actual,
-    baseline_predictions
+    y_test_actual, baseline_predictions
 )
 
 baseline_rmse = np.sqrt(
@@ -244,8 +254,7 @@ baseline_rmse = np.sqrt(
 )
 
 baseline_r2 = r2_score(
-    y_test_actual,
-    baseline_predictions
+    y_test_actual, baseline_predictions
 )
 
 baseline_rmsle = np.sqrt(
@@ -255,11 +264,68 @@ baseline_rmsle = np.sqrt(
     )
 )
 
-print("\n--- BASELINE RESULTS ---")
 print("MAE:", baseline_mae)
 print("RMSE:", baseline_rmse)
 print("R2:", baseline_r2)
 print("RMSLE:", baseline_rmsle)
+
+
+# =========================================
+# BASELINE 2: STORE-FAMILY AVERAGE
+# =========================================
+
+print("\n--- BASELINE 2: STORE-FAMILY AVERAGE ---")
+
+# Calculate average sales for each store and product family
+# using TRAINING DATA ONLY
+store_family_means = train.groupby(
+    ["store_nbr", "family"]
+)["sales"].mean()
+
+# Calculate the overall training average
+global_mean = train["sales"].mean()
+
+# Match each test row with its store-family average
+store_family_predictions = test[
+    ["store_nbr", "family"]
+].merge(
+    store_family_means.rename("prediction").reset_index(),
+    on=["store_nbr", "family"],
+    how="left"
+)["prediction"]
+
+# Use global average if a store-family combination is unseen
+store_family_predictions = store_family_predictions.fillna(
+    global_mean
+).to_numpy()
+
+# Evaluate
+store_family_mae = mean_absolute_error(
+    y_test_actual, store_family_predictions
+)
+
+store_family_rmse = np.sqrt(
+    mean_squared_error(y_test_actual, store_family_predictions)
+)
+
+store_family_r2 = r2_score(
+    y_test_actual, store_family_predictions
+)
+
+store_family_rmsle = np.sqrt(
+    mean_squared_log_error(
+        y_test_actual,
+        np.maximum(store_family_predictions, 0)
+    )
+)
+
+print("MAE:", store_family_mae)
+print("RMSE:", store_family_rmse)
+print("R2:", store_family_r2)
+print("RMSLE:", store_family_rmsle)
+
+print("\nBoth baseline models completed successfully!")
+
 # DECISION TREE - WITHOUT WEATHER
 
 # Take a sample from the training data
@@ -278,7 +344,7 @@ print("Testing data:", X_test_without_weather.shape)
 # Create the Decision Tree pipeline
 
 decision_tree = Pipeline(steps=[
-    ("preprocessor", preprocessor),
+    ("preprocessor", make_preprocessor()),
     ("model", DecisionTreeRegressor(
         max_depth=15,
         min_samples_leaf=10,
@@ -341,7 +407,7 @@ print("\n--- DECISION TREE WITH WEATHER DATA ---")
 print("Training sample:", X_tree_train_weather.shape)
 print("Testing data:", X_test_with_weather.shape)
 decision_tree_weather = Pipeline(steps=[
-    ("preprocessor", preprocessor),
+    ("preprocessor", make_preprocessor()),
     ("model", DecisionTreeRegressor(
         max_depth=15,
         min_samples_leaf=10,
@@ -396,7 +462,7 @@ print("RMSLE:", tree_weather_rmsle)
 # RANDOM FOREST - WITHOUT WEATHER
 
 random_forest = Pipeline(steps=[
-    ("preprocessor", preprocessor),
+    ("preprocessor", make_preprocessor()),
     ("model", RandomForestRegressor(
         n_estimators=50,
         max_depth=15,
@@ -451,7 +517,7 @@ print("RMSLE:", rf_rmsle)
 # RANDOM FOREST - WITH WEATHER
 
 random_forest_weather = Pipeline(steps=[
-    ("preprocessor", preprocessor),
+    ("preprocessor", make_preprocessor()),
     ("model", RandomForestRegressor(
         n_estimators=50,
         max_depth=15,
@@ -508,50 +574,190 @@ print("RMSLE:", rf_weather_rmsle)
 
 
 # -----------------------------------------
+# ERROR ANALYSIS
+# -----------------------------------------
+
+print("\n--- ERROR ANALYSIS ---")
+
+# Create a DataFrame containing actual and predicted sales
+error_analysis_df = test[
+    ["store_nbr", "family", "sales"]
+].copy()
+
+error_analysis_df["predicted_sales"] = rf_predictions
+
+# Calculate absolute prediction error
+error_analysis_df["absolute_error"] = abs(
+    error_analysis_df["sales"] -
+    error_analysis_df["predicted_sales"]
+)
+
+
+# =========================================
+# 1. ERROR BY PRODUCT FAMILY
+# =========================================
+
+family_errors = error_analysis_df.groupby(
+    "family"
+)["absolute_error"].mean().sort_values(
+    ascending=False
+)
+
+print("\nTop 10 Product Families with Highest MAE:")
+print(family_errors.head(10))
+
+
+# =========================================
+# 2. ERROR BY STORE
+# =========================================
+
+store_errors = error_analysis_df.groupby(
+    "store_nbr"
+)["absolute_error"].mean().sort_values(
+    ascending=False
+)
+
+print("\nTop 10 Stores with Highest MAE:")
+print(store_errors.head(10))
+
+
+# Save error analysis results
+family_errors.to_csv(
+    "results/error_by_family.csv"
+)
+
+store_errors.to_csv(
+    "results/error_by_store.csv"
+)
+
+print("\nError analysis files saved successfully!")
+
+
+# =========================================
+# 3. NORMALIZED MAE BY PRODUCT FAMILY
+# =========================================
+
+print("\n--- NORMALIZED MAE BY PRODUCT FAMILY ---")
+
+# Calculate average actual sales and MAE for each family
+family_error_summary = error_analysis_df.groupby(
+    "family"
+).agg(
+    mean_actual_sales=("sales", "mean"),
+    MAE=("absolute_error", "mean")
+).reset_index()
+
+# Calculate error relative to average sales volume
+family_error_summary["Normalized_MAE_%"] = (
+    family_error_summary["MAE"] /
+    family_error_summary["mean_actual_sales"]
+) * 100
+
+# Sort from highest relative error to lowest
+family_error_summary = family_error_summary.sort_values(
+    by="Normalized_MAE_%",
+    ascending=False
+)
+
+print("\nProduct Families with Highest Relative Errors:")
+print(family_error_summary.head(15).round(2))
+
+# Save results
+family_error_summary.to_csv(
+    "results/normalized_error_by_family.csv",
+    index=False
+)
+
+print("\nNormalized family error analysis saved successfully!")
+
+
+# =========================================
+# 4. FILTER LOW-VOLUME PRODUCT FAMILIES
+# =========================================
+
+print("\n--- NORMALIZED MAE (AVERAGE SALES >= 10) ---")
+
+# Keep product families with average sales of at least 10
+filtered_family_errors = family_error_summary[
+    family_error_summary["mean_actual_sales"] >= 10
+].copy()
+
+# Sort by relative error
+filtered_family_errors = filtered_family_errors.sort_values(
+    by="Normalized_MAE_%",
+    ascending=False
+)
+
+print(filtered_family_errors.round(2))
+
+# Save filtered results
+filtered_family_errors.to_csv(
+    "results/normalized_error_by_family_filtered.csv",
+    index=False
+)
+
+print("\nFiltered family error analysis saved successfully!")
+
+
+# -----------------------------------------
 # FEATURE IMPORTANCE ANALYSIS
 # -----------------------------------------
 
 print("\n--- FEATURE IMPORTANCE ANALYSIS ---")
 
-# Use the Random Forest model WITH weather
-# so that the feature names and importance scores match.
 
-fitted_preprocessor = random_forest_weather.named_steps["preprocessor"]
+# FUNCTION TO EXTRACT AND SAVE FEATURE IMPORTANCE
+def save_feature_importance(model_pipeline, filename, model_name):
 
-fitted_model = random_forest_weather.named_steps["model"]
+    fitted_preprocessor = model_pipeline.named_steps["preprocessor"]
+    fitted_model = model_pipeline.named_steps["model"]
 
-# Get feature names after preprocessing
-feature_names = fitted_preprocessor.get_feature_names_out()
+    # Get feature names after preprocessing
+    feature_names = fitted_preprocessor.get_feature_names_out()
 
-# Get importance scores
-importances = fitted_model.feature_importances_
+    # Get importance scores
+    importances = fitted_model.feature_importances_
 
-# Check that both have the same length
-print("Number of feature names:", len(feature_names))
-print("Number of importance scores:", len(importances))
+    # Check that both have the same length
+    print(f"\n{model_name}")
+    print("Number of feature names:", len(feature_names))
+    print("Number of importance scores:", len(importances))
 
-# Create the feature importance table
-importance_df = pd.DataFrame({
-    "Feature": feature_names,
-    "Importance": importances
-})
+    # Create the feature importance table
+    importance_df = pd.DataFrame({
+        "Feature": feature_names,
+        "Importance": importances
+    })
 
-# Sort from most important to least important
-importance_df = importance_df.sort_values(
-    by="Importance",
-    ascending=False
-)
+    # Sort from most important to least important
+    importance_df = importance_df.sort_values(
+        by="Importance",
+        ascending=False
+    )
 
-print("\nTop 15 Most Important Features:")
-print(importance_df.head(15))
+    print("\nTop 15 Most Important Features:")
+    print(importance_df.head(15))
 
-# Save the results
-importance_df.to_csv(
+    # Save the results
+    importance_df.to_csv(filename, index=False)
+
+    print(f"\nSaved successfully: {filename}")
+
+
+# 1. Random Forest WITHOUT weather
+save_feature_importance(
+    random_forest,
     "results/feature_importance.csv",
-    index=False
+    "Random Forest WITHOUT Weather"
 )
 
-print("\nFeature importance saved successfully!")
+
+# 2. Random Forest WITH weather
+save_feature_importance(
+    random_forest_weather,
+    "results/feature_importance_with_weather.csv",
+    "Random Forest WITH Weather"
+)
 
 # -----------------------------------------
 # MODEL COMPARISON TABLE
@@ -561,7 +767,8 @@ print("\n--- MODEL COMPARISON ---")
 
 comparison_df = pd.DataFrame({
     "Model": [
-        "Baseline",
+        "Simple Average Baseline",
+        "Store-Family Average Baseline",
         "Decision Tree (Without Weather)",
         "Decision Tree (With Weather)",
         "Random Forest (Without Weather)",
@@ -570,6 +777,7 @@ comparison_df = pd.DataFrame({
 
     "MAE": [
         baseline_mae,
+        store_family_mae,
         tree_mae,
         tree_weather_mae,
         rf_mae,
@@ -578,6 +786,7 @@ comparison_df = pd.DataFrame({
 
     "RMSE": [
         baseline_rmse,
+        store_family_rmse,
         tree_rmse,
         tree_weather_rmse,
         rf_rmse,
@@ -586,6 +795,7 @@ comparison_df = pd.DataFrame({
 
     "R2": [
         baseline_r2,
+        store_family_r2,
         tree_r2,
         tree_weather_r2,
         rf_r2,
@@ -594,6 +804,7 @@ comparison_df = pd.DataFrame({
 
     "RMSLE": [
         baseline_rmsle,
+        store_family_rmsle,
         tree_rmsle,
         tree_weather_rmsle,
         rf_rmsle,
@@ -611,6 +822,7 @@ comparison_df.to_csv(
 
 print("\nModel comparison saved successfully!")
 print("Model comparison saved successfully!")
+
 # ==========================================
 # WEATHER FEATURE IMPORTANCE
 # ==========================================
@@ -660,3 +872,115 @@ weather_importance_df.to_csv(
 )
 
 print("\nWeather feature importance saved!")
+# ==========================================
+# VISUALIZATION 1: MODEL COMPARISON (MAE)
+# ==========================================
+
+plt.figure(figsize=(10, 6))
+
+plt.bar(
+    comparison_df["Model"],
+    comparison_df["MAE"]
+)
+
+plt.title("Model Comparison - MAE")
+plt.xlabel("Model")
+plt.ylabel("MAE")
+
+plt.xticks(rotation=25, ha="right")
+plt.tight_layout()
+
+plt.savefig(
+    "figures/model_comparison_mae.png",
+    dpi=300
+)
+
+plt.close()
+
+print("MAE comparison graph saved successfully!")
+# ==========================================
+#      CREATE REMAINING COMPARISON GRAPHS
+# ==========================================
+
+# Load model comparison results
+comparison_df = pd.read_csv("results/model_comparison.csv")
+
+# Metrics to visualize
+metrics = ["RMSE", "R2", "RMSLE"]
+
+for metric in metrics:
+
+    plt.figure(figsize=(10, 6))
+
+    plt.bar(
+        comparison_df["Model"],
+        comparison_df[metric]
+    )
+
+    plt.title(f"Model Comparison - {metric}")
+    plt.xlabel("Model")
+    plt.ylabel(metric)
+    plt.xticks(rotation=25, ha="right")
+
+    plt.tight_layout()
+
+    plt.savefig(f"figures/model_comparison_{metric.lower()}.png")
+    plt.close()
+
+print("All comparison graphs saved successfully!")
+
+# ==========================================
+# ACTUAL VS PREDICTED SALES
+# ==========================================
+
+print("\n--- ACTUAL VS PREDICTED SALES GRAPH ---")
+
+# Select 5,000 random test observations
+sample_indices = np.random.RandomState(42).choice(
+    len(y_test_actual),
+    size=min(5000, len(y_test_actual)),
+    replace=False
+)
+
+# Get actual and predicted sales
+actual_sample = y_test_actual[sample_indices]
+predicted_sample = rf_predictions[sample_indices]
+
+# Apply log1p to make the graph easier to read
+actual_log = np.log1p(actual_sample)
+predicted_log = np.log1p(predicted_sample)
+
+# Create the graph
+plt.figure(figsize=(10, 6))
+
+plt.scatter(
+    actual_log,
+    predicted_log,
+    alpha=0.3,
+    s=15
+)
+
+# Add the perfect prediction line
+max_value = max(actual_log.max(), predicted_log.max())
+
+plt.plot(
+    [0, max_value],
+    [0, max_value],
+    linestyle="--"
+)
+
+plt.title("Actual vs Predicted Sales - Random Forest")
+plt.xlabel("Actual Sales (log1p scale)")
+plt.ylabel("Predicted Sales (log1p scale)")
+
+plt.tight_layout()
+
+# Save the graph
+plt.savefig(
+    "figures/actual_vs_predicted.png",
+    dpi=300
+)
+
+plt.close()
+
+print("Actual vs Predicted graph saved successfully!")
