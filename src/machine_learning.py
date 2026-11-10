@@ -226,8 +226,9 @@ y_test_actual = test["sales"].to_numpy()
 # BASELINE 1: SIMPLE AVERAGE
 # =========================================
 
-print("\n--- BASELINE 1: SIMPLE AVERAGE ---")
+print("\n--- BASELINE 1: GLOBAL MEAN LOG-SALES ---")
 
+# Create the baseline model
 baseline_model = DummyRegressor(strategy="mean")
 
 # Train the model
@@ -767,7 +768,7 @@ print("\n--- MODEL COMPARISON ---")
 
 comparison_df = pd.DataFrame({
     "Model": [
-        "Simple Average Baseline",
+        "Global Mean Log-Sales Baseline",
         "Store-Family Average Baseline",
         "Decision Tree (Without Weather)",
         "Decision Tree (With Weather)",
@@ -821,7 +822,6 @@ comparison_df.to_csv(
 )
 
 print("\nModel comparison saved successfully!")
-print("Model comparison saved successfully!")
 
 # ==========================================
 # WEATHER FEATURE IMPORTANCE
