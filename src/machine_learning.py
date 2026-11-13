@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+from pathlib import Path
+Path("results").mkdir(exist_ok=True)
+Path("figures").mkdir(exist_ok=True)
+
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 

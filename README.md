@@ -17,3 +17,11 @@ References:
 - Muñoz Sabater, J. (2019). ERA5-Land hourly data from 2001 to present [Data set]. ECMWF. https://doi.org/10.24381/CDS.E2161BAC
 
 Preprocessing decisions, numbers, and limitations: see `notes.md`.
+
+## How to run (from the project root folder)
+1. `pip install -r requirements.txt`
+2. Put the Kaggle files in `Data/raw/`
+3. `python src/download_weather.py` (needs internet; skips cities already downloaded)
+4. `python src/build_dataset.py` -> creates `Data/processed/merged.csv`
+5. Open `Notebooks/03_analysis.ipynb` and Run All -> figures in `figures/`
+6. `python src/machine_learning.py` (several minutes, needs several GB of RAM) -> `results/` and `figures/`
