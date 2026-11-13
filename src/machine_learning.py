@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
@@ -16,7 +17,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
 
 
 # Load the merged dataset
@@ -99,6 +101,71 @@ print("Training date range:",
 
 print("Testing date range:",
       test["date"].min(), "to", test["date"].max())
+
+
+# ==========================================
+# CREATE HISTORICAL STORE-FAMILY FEATURE
+# ==========================================
+
+# Sort training data chronologically
+train = train.sort_values("date").copy()
+
+# Convert sales to log scale
+train["log_sales"] = np.log1p(train["sales"])
+
+# For each training row, calculate the average log-sales
+# using only previous observations from the same store-family
+train["sf_mean_log"] = train.groupby(
+    ["store_nbr", "family"]
+)["log_sales"].transform(
+    lambda s: s.shift(1).expanding().mean()
+)
+
+# Use the historical global average as a fallback
+# for store-family combinations without previous observations
+
+# Calculate global average using previous dates only
+daily_log_stats = train.groupby("date")["log_sales"].agg(
+    ["sum", "count"]
+).sort_index()
+
+daily_log_stats["global_mean_log"] = (
+    daily_log_stats["sum"].cumsum().shift(1)
+    / daily_log_stats["count"].cumsum().shift(1)
+)
+
+# Match each date with its previous-date global average
+train["global_mean_log"] = train["date"].map(
+    daily_log_stats["global_mean_log"]
+)
+
+# Fill missing historical store-family averages
+train["sf_mean_log"] = train["sf_mean_log"].fillna(
+    train["global_mean_log"]
+).fillna(0)
+
+
+# For test rows, use the complete training-period
+# average log-sales for each store-family
+store_family_log_means = train.groupby(
+    ["store_nbr", "family"]
+)["log_sales"].mean()
+
+test = test.merge(
+    store_family_log_means.rename("sf_mean_log").reset_index(),
+    on=["store_nbr", "family"],
+    how="left"
+)
+
+# Fallback for any unseen combination
+test["sf_mean_log"] = test["sf_mean_log"].fillna(
+    train["log_sales"].mean()
+)
+
+print("\nHistorical store-family feature created!")
+print("Training feature missing values:", train["sf_mean_log"].isna().sum())
+print("Testing feature missing values:", test["sf_mean_log"].isna().sum())
+
 # ==========================================
 #   SELECT FEATURES
 # ==========================================
@@ -125,7 +192,8 @@ numerical_features = [
     "dayofweek",
     "weekofyear",
     "is_weekend",
-    "is_payday"
+    "is_payday",
+    "sf_mean_log"
 ]
 
 # Weather features
